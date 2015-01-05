@@ -19,7 +19,9 @@ matplotlib.use("Qt5Agg")
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.pyplot import subplots
 from matplotlib.figure import Figure
+from matplotlib.cm import get_cmap
 
 def debug():
     from PyQt5.QtCore import pyqtRemoveInputHook; pyqtRemoveInputHook()
@@ -48,10 +50,14 @@ class Options(QWidget):
 
         viewLayout = QHBoxLayout()
 
+        self.merge = QCheckBox("Merge")
+        self.merge.stateChanged.connect(self.reset)
+
         self.effective_date = QCheckBox("Use Effective Dates")
         self.effective_date.stateChanged.connect(self.reset)
 
         viewLayout.addLayout(currencyLayout)
+        viewLayout.addWidget(self.merge)
         viewLayout.addWidget(self.effective_date)
 
         filterLayout = QHBoxLayout()
@@ -77,7 +83,7 @@ class Options(QWidget):
                 self.filename = selected_file
                 self.window.setWindowTitle("Ledger visualizer - " + selected_file)
 
-                self.filter.editingFinished.connect(self.reset.emit)
+                self.filter.editingFinished.connect(self.reset)
 
                 self.show_currency.addItems(journal.commodities.keys())
                 self.show_currency.currentTextChanged.connect(self.reset)
@@ -151,9 +157,10 @@ class GraphTab(QWidget):
     def reset(self):
         options = self.options
         self.show_currency = options.show_currency.currentText()
+        self.merge = bool(self.show_currency and options.merge.isChecked())
 
         filter = options.filter.text()
-        self.data = options.journal.time_series(filter, self.show_currency)
+        self.data = options.journal.time_series(filter, self.show_currency, self.merge)
         self.redraw()
 
     def redraw(self):

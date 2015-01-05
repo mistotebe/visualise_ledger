@@ -25,13 +25,15 @@ class Journal(object):
             options.append("--effective")
         return self.journal.query(" ".join(options + [filter]))
 
-    def time_series(self, filter, show_currency=None):
+    def time_series(self, filter, show_currency=None, merge=False):
         if show_currency and isinstance(show_currency, str):
             show_currency = self.ledger.commodities.find(show_currency)
         data = defaultdict(dict)
         last = defaultdict(ledger.Amount)
         for post in self.entries(filter):
             commodity = post.amount.commodity
+            if merge:
+                commodity = show_currency
             old = last[commodity.symbol]
             old.commodity = show_currency or commodity
             series = data[commodity.symbol]
