@@ -178,6 +178,54 @@ class GraphTab(QWidget):
         self.ax.legend(loc='upper left')
         self.fig.canvas.draw()
 
+class AccountTab(QWidget):
+    def __init__(self, options):
+        super(AccountTab, self).__init__()
+        self.options = options
+        self.options.reset.connect(self.reset)
+
+        self.fig = Figure()
+        self.ax = self.fig.add_subplot(111)
+
+        self.canvas = FigureCanvas(self.fig)
+        self.canvas.setParent(self)
+
+        self.mpl_toolbar = NavigationToolbar(self.canvas, self)
+
+        graphLayout = QVBoxLayout()
+        graphLayout.addWidget(self.canvas)
+        graphLayout.addWidget(self.mpl_toolbar)
+
+        layout = QHBoxLayout(self)
+        layout.addLayout(graphLayout)
+
+    def reset(self):
+        options = self.options
+        self.show_currency = options.show_currency.currentText()
+        self.merge = bool(self.show_currency and options.merge.isChecked())
+
+        filter = options.filter.text()
+        self.series = options.journal.account_series(filter)
+        self.data = self.series.data
+        self.redraw()
+
+    def redraw(self):
+        self.ax.clear()
+        if not self.show_currency:
+            return
+
+        commodity = self.options.journal.commodities[self.show_currency]
+        for account, series in self.data.items():
+            x = sorted(series.keys())
+            try:
+                y = [series[i].value(commodity, i).to_amount().number() for i in x]
+            except ArithmeticError:
+                continue
+            self.ax.plot_date(x, y, fmt='o-', label=account)
+
+        self.ax.legend(loc='upper left')
+        self.fig.canvas.draw()
+
 
 class PieTab(QWidget):
     def __init__(self, options):
@@ -260,6 +308,9 @@ class Window(QWidget):
 
         graph = GraphTab(self.options)
         tabs.addTab(graph, "Time series")
+
+        graph = AccountTab(self.options)
+        tabs.addTab(graph, "Account breakdown")
 
         text = PieTab(self.options)
         tabs.addTab(text, "Pie charts")
