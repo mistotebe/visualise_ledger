@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (
         QLabel, QMessageBox, QGroupBox,
         QLineEdit, QPushButton, QFileDialog, QComboBox, QCheckBox, QSpinBox,
     )
-from datasource import Journal
+from datasource import Journal, get_value
 
 import matplotlib
 matplotlib.use("Qt5Agg")
@@ -26,12 +26,6 @@ from matplotlib.cm import get_cmap
 def debug():
     from PyQt5.QtCore import pyqtRemoveInputHook; pyqtRemoveInputHook()
     import ipdb; ipdb.set_trace()
-
-def get_value(amount, commodity, *maybe_date):
-    # there is an optional parameter, date
-    value = amount.value(commodity, *maybe_date)
-    # for zero balance, to_amount() will throw an ArithmeticError
-    return value and value.to_amount().number() or 0
 
 class Options(QWidget):
     reset = pyqtSignal()

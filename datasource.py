@@ -6,6 +6,12 @@ def debug():
     from PyQt5.QtCore import pyqtRemoveInputHook; pyqtRemoveInputHook()
     import ipdb; ipdb.set_trace()
 
+def get_value(amount, commodity, *maybe_date):
+    # there is an optional parameter, date
+    value = amount.value(commodity, *maybe_date)
+    # for zero balance, to_amount() will throw an ArithmeticError
+    return value and value.to_amount().number() or ledger.Amount(0)
+
 class StatefulAccounts(object):
     def __init__(self, journal):
         self.journal = journal.journal
