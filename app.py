@@ -27,6 +27,12 @@ def debug():
     from PyQt5.QtCore import pyqtRemoveInputHook; pyqtRemoveInputHook()
     import ipdb; ipdb.set_trace()
 
+def get_value(amount, commodity, *maybe_date):
+    # there is an optional parameter, date
+    value = amount.value(commodity, *maybe_date)
+    # for zero balance, to_amount() will throw an ArithmeticError
+    return value and value.to_amount().number() or 0
+
 class Options(QWidget):
     reset = pyqtSignal()
 
@@ -216,13 +222,11 @@ class AccountTab(QWidget):
 
         commodity = self.options.journal.commodities[self.show_currency]
         for account, series in self.data.items():
-            x = sorted(series.keys())
-            try:
-                y = [series[i].value(commodity, i).to_amount().number() for i in x]
-            except ArithmeticError:
-                continue
+            data = {date: get_value(amount, commodity, date) for (date, amount) in series.items()}
+            x, y = zip(*sorted(data.items()))
             self.ax.plot_date(x, y, fmt='o-', label=account)
 
+        self.ax.set_ylabel(self.show_currency)
         self.ax.legend(loc='upper left')
         self.fig.canvas.draw()
 
@@ -258,7 +262,8 @@ class PieTab(QWidget):
         filter = options.filter.text()
         self.series = options.journal.account_series(filter)
         commodity = self.options.journal.commodities[self.commodity]
-        self.data = {account: self.series.last[account].value(commodity).to_amount().number() for account in self.series.accounts}
+
+        self.data = {account: get_value(self.series.last[account], commodity) for account in self.series.accounts}
         self.redraw()
 
     def wedges(self, values, threshold=0.01):
