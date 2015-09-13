@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
         QApplication, QWidget, QTabWidget,
         QVBoxLayout, QHBoxLayout,
         QLabel, QMessageBox, QGroupBox,
-        QLineEdit, QPushButton, QFileDialog, QComboBox, QCheckBox,
+        QLineEdit, QPushButton, QFileDialog, QComboBox, QCheckBox, QSpinBox,
     )
 from datasource import Journal
 
@@ -35,6 +35,7 @@ def get_value(amount, commodity, *maybe_date):
 
 class Options(QWidget):
     reset = pyqtSignal()
+    redraw = pyqtSignal()
 
     def __init__(self, window):
         super(Options, self).__init__()
@@ -62,9 +63,22 @@ class Options(QWidget):
         self.effective_date = QCheckBox("Use Effective Dates")
         self.effective_date.stateChanged.connect(self.reset)
 
+        depthLayout = QHBoxLayout()
+
+        label = QLabel("Account depth to show")
+        self.depth_limit = QSpinBox()
+        self.depth_limit.setSpecialValueText("Unlimited")
+        self.depth_limit.setMinimum(0)
+        self.depth_limit.setValue(0)
+        self.depth_limit.valueChanged.connect(self.redraw)
+
+        depthLayout.addWidget(label)
+        depthLayout.addWidget(self.depth_limit)
+
         viewLayout.addLayout(currencyLayout)
         viewLayout.addWidget(self.merge)
         viewLayout.addWidget(self.effective_date)
+        viewLayout.addLayout(depthLayout)
 
         filterLayout = QHBoxLayout()
 
@@ -140,6 +154,7 @@ class GraphTab(QWidget):
         super(GraphTab, self).__init__()
         self.options = options
         self.options.reset.connect(self.reset)
+        self.options.redraw.connect(self.redraw)
 
         self.commodities = CommodityBox(options)
         self.commodities.changed.connect(self.redraw)
@@ -171,6 +186,8 @@ class GraphTab(QWidget):
 
     def redraw(self):
         self.ax.clear()
+        if not self.data:
+            return
 
         for commodity, series in self.data.items():
             if commodity not in self.commodities:
@@ -189,6 +206,7 @@ class AccountTab(QWidget):
         super(AccountTab, self).__init__()
         self.options = options
         self.options.reset.connect(self.reset)
+        self.options.redraw.connect(self.redraw)
 
         self.fig = Figure()
         self.ax = self.fig.add_subplot(111)
@@ -213,18 +231,36 @@ class AccountTab(QWidget):
         filter = options.filter.text()
         self.series = options.journal.account_series(filter)
         self.data = self.series.data
+        self.aggregated = self.series.aggregated
         self.redraw()
 
     def redraw(self):
         self.ax.clear()
-        if not self.show_currency:
+        if not self.data or not self.show_currency:
             return
 
+        processed = set()
         commodity = self.options.journal.commodities[self.show_currency]
-        for account, series in self.data.items():
-            data = {date: get_value(amount, commodity, date) for (date, amount) in series.items()}
+        for name, data in self.data.items():
+            account = self.series.accounts[name]
+            limit = self.options.depth_limit.value()
+
+            if limit:
+                aggregate = account.depth >= limit
+                while account.depth > limit:
+                    account = account.parent
+
+                if aggregate:
+                    name = account.fullname()
+                    data = self.aggregated[name]
+
+            if name in processed:
+                continue
+
+            data = {date: get_value(amount, commodity, date) for (date, amount) in data.items()}
             x, y = zip(*sorted(data.items()))
-            self.ax.plot_date(x, y, fmt='o-', label=account)
+            self.ax.plot_date(x, y, fmt='o-', label=name)
+            processed.add(name)
 
         self.ax.set_ylabel(self.show_currency)
         self.ax.legend(loc='upper left')
@@ -236,6 +272,7 @@ class PieTab(QWidget):
         super(PieTab, self).__init__()
         self.options = options
         self.options.reset.connect(self.reset)
+        self.options.redraw.connect(self.redraw)
 
         self.fig, self.ax = subplots()
 
@@ -263,7 +300,7 @@ class PieTab(QWidget):
         self.series = options.journal.account_series(filter)
         commodity = self.options.journal.commodities[self.commodity]
 
-        self.data = {account: get_value(self.series.last[account], commodity) for account in self.series.accounts}
+        self.data = {account: get_value(self.series.last[account], commodity) for account in self.series.accounts.keys()}
         self.redraw()
 
     def wedges(self, values, threshold=0.01):
@@ -295,7 +332,7 @@ class PieTab(QWidget):
 
     def redraw(self):
         self.ax.clear()
-        if not self.commodity:
+        if not self.data or not self.commodity:
             return
 
         sizes, labels = self.wedges((value, key) for key, value in self.data.items())

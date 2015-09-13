@@ -7,7 +7,8 @@ def debug():
     import ipdb; ipdb.set_trace()
 
 class StatefulAccounts(object):
-    def __init__(self):
+    def __init__(self, journal):
+        self.journal = journal.journal
         self.commodities = set()
 
         self.data = defaultdict(dict)
@@ -18,7 +19,11 @@ class StatefulAccounts(object):
 
     @property
     def accounts(self):
-        return self.data.keys()
+        return {name: self.journal.find_account(name, False) for name in self.data.keys()}
+
+    @property
+    def aggregated_accounts(self):
+        return {name: self.journal.find_account(name, False) for name in self.aggregated.keys()}
 
     def account_hierarchy(self):
         pass
@@ -96,7 +101,7 @@ class Journal(object):
         return data
 
     def account_series(self, filter):
-        account_series = StatefulAccounts()
+        account_series = StatefulAccounts(self)
         for post in self.entries(filter):
             account_series.post_callback(post)
 
