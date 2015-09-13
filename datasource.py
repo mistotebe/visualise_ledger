@@ -28,8 +28,8 @@ class StatefulAccounts(object):
         last = self.aggregated_last[name]
         series = self.aggregated[name]
 
-        last += post.amount
-        series[post.date] = self.aggregated_last[name] = last
+        value = last + post.amount
+        series[post.date] = self.aggregated_last[name] = value
 
         if account.parent:
             self._aggregate(post, account.parent)
@@ -43,8 +43,8 @@ class StatefulAccounts(object):
         last = self.last[name]
         series = self.data[name]
 
-        last = last + post.amount
-        series[post.date] = self.last[name] = last
+        value = last + post.amount
+        series[post.date] = self.last[name] = value
         self._aggregate(post, account)
 
 class Journal(object):
