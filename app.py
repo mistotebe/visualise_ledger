@@ -262,25 +262,25 @@ class PieTab(QWidget):
         self.redraw()
 
     def wedges(self, values, threshold=0.01):
-         """Generates wedges as long as the new one would be
-            at least (threshold * current total), then one more
-            for the rest of the data"""
-         values = sorted(values, reverse=True)
-         out = []
-         total = 0
-         while values:
-             current = values[0]
-             value, name = current
-             if total and float(value / total) < threshold:
-                 current = (sum((x[0] for x in values)), 'long tail of %d below %2.2f %%' % (len(values), threshold * 100))
-                 out.append(current)
-                 break
-             else:
-                 out.append(current)
-                 total += value
-                 values.pop(0)
-         # the graph gets drawn counter-clockwise, reverse to get it clockwise
-         return zip(*reversed(out))
+        """Generates wedges as long as the new one would be
+           at least (threshold * current total), then one more
+           for the rest of the data"""
+        values = sorted(values, reverse=True)
+        out = []
+        total = 0
+        while values:
+            current = values[0]
+            value, name = current
+            if total and float(value / total) < threshold:
+                current = (sum((x[0] for x in values)), 'long tail of %d below %2.2f %%' % (len(values), threshold * 100))
+                out.append(current)
+                break
+            else:
+                out.append(current)
+                total += value
+                values.pop(0)
+        # the graph gets drawn counter-clockwise, reverse to get it clockwise
+        return zip(*reversed(out))
 
     def redraw(self):
         self.ax.clear()
