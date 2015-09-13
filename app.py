@@ -276,14 +276,20 @@ class PieTab(QWidget):
         while values:
             current = values[0]
             value, name = current
-            if total and float(value / total) < threshold:
-                current = (sum((x[0] for x in values)), 'long tail of %d below %2.2f %%' % (len(values), threshold * 100))
+            if total and float(value / total) < threshold and len(values) > 1:
+                remainder = sum((x[0] for x in values))
+                current = (remainder, 'long tail of {} below {:.2%}'.format(len(values), threshold))
                 out.append(current)
+                total += remainder
                 break
             else:
                 out.append(current)
                 total += value
                 values.pop(0)
+
+        if total:
+            out = [(value, "{} ({:.2%})".format(name, float(value / total))) for (value, name) in out]
+
         # the graph gets drawn counter-clockwise, reverse to get it clockwise
         return zip(*reversed(out))
 
