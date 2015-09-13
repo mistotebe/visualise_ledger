@@ -292,16 +292,13 @@ class PieTab(QWidget):
 
         filter = options.filter.text()
         self.series = options.journal.account_series(filter)
-        commodity = self.options.journal.commodities[self.commodity]
 
-        self.data = {account: get_value(self.series.last[account], commodity) for account in self.series.accounts.keys()}
         self.redraw()
 
     def wedges(self, values, threshold=0.01):
         """Generates wedges as long as the new one would be
            at least (threshold * current total), then one more
            for the rest of the data"""
-        values = sorted(values, reverse=True)
         out = []
         total = 0
         while values:
@@ -319,17 +316,45 @@ class PieTab(QWidget):
                 values.pop(0)
 
         if total:
-            out = [(value, "{} ({:.2%})".format(name, float(value / total))) for (value, name) in out]
+            out = [(value.abs(), "{} ({:.2%})".format(name, float(value / total))) for (value, name) in out]
 
         # the graph gets drawn counter-clockwise, reverse to get it clockwise
         return zip(*reversed(out))
 
     def redraw(self):
         self.ax.clear()
-        if not self.data or not self.commodity:
+        if not self.series or not self.commodity:
             return
 
-        sizes, labels = self.wedges((value, key) for key, value in self.data.items())
+        commodity = self.options.journal.commodities[self.commodity]
+
+        data = []
+        processed = set()
+        for name, account in self.series.accounts.items():
+            limit = self.options.depth_limit.value()
+            aggregate = limit and account.depth >= limit
+
+            if aggregate:
+                while account.depth > limit:
+                    account = account.parent
+
+                name = account.fullname()
+                value = self.series.aggregated_last[name]
+            else:
+                value = self.series.last[name]
+
+            if name in processed:
+                continue
+
+            data.append((get_value(value, commodity), name))
+            processed.add(name)
+
+        if not data:
+            return
+
+        data = sorted(data, reverse=True, key=lambda x: x[0].abs())
+
+        sizes, labels = self.wedges(data)
         colors = map(self.cmap, (1 - float(x)/len(sizes) for x in range(len(sizes))))
         self.ax.pie(sizes, labels=labels, colors=list(colors), startangle=90)
         self.fig.canvas.draw()
