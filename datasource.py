@@ -66,6 +66,11 @@ class Journal(object):
             options.append("--effective")
         return self.journal.query(" ".join(options + [filter]))
 
+    def update_pricedb(self, amount):
+        if amount.has_annotation() and amount.annotation.price:
+            self.ledger.commodities.exchange(amount.commodity,
+                                             amount.annotation.price)
+
     def time_series(self, filter, show_currency=None, merge=False):
         if show_currency and isinstance(show_currency, str):
             show_currency = self.ledger.commodities.find(show_currency)
@@ -81,6 +86,10 @@ class Journal(object):
             # TODO: move the currency valuation to display logic instead
             value = post.amount
             if show_currency:
+                # Exchange does not always seem to pick up the conversion even
+                # when available. We can try and hint it
+                if value.value(show_currency) is None:
+                    self.update_pricedb(value)
                 value = value.value(show_currency)
             last[commodity.symbol] = series[post.date] = series.get(post.date, old) + value
 
