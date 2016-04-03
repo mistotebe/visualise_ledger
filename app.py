@@ -160,6 +160,7 @@ class GraphTab(QWidget):
         self.canvas.setParent(self)
 
         self.mpl_toolbar = NavigationToolbar(self.canvas, self)
+        self.cmap = get_cmap('gist_ncar')
 
         graphLayout = QVBoxLayout()
         graphLayout.addWidget(self.canvas)
@@ -183,14 +184,17 @@ class GraphTab(QWidget):
         if not self.data:
             return
 
-        for commodity, amount in sorted(self.last.items(), key=lambda x: x[1].number(), reverse=True):
+        lines = len(self.last)
+        colors = map(self.cmap, ((x+0.5)/lines for x in range(lines)))
+
+        for color, (commodity, amount) in zip(colors, sorted(self.last.items(), key=lambda x: x[1].number(), reverse=True)):
             if commodity not in self.commodities:
                 continue
             series = self.data[commodity]
             x = sorted(series.keys())
             y = [series[i].number() for i in x]
             label = ("%s (%." + str(amount.commodity.precision) + "f %s)") % (commodity, amount.number(), amount.commodity.symbol)
-            self.ax.plot_date(x, y, fmt='o-', label=label)
+            self.ax.plot_date(x, y, fmt='o-', color=color, label=label)
 
         if self.show_currency:
             self.ax.set_ylabel(self.show_currency)
