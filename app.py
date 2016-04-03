@@ -175,7 +175,7 @@ class GraphTab(QWidget):
         self.merge = bool(self.show_currency and options.merge.isChecked())
 
         filter = options.filter.text()
-        self.data = options.journal.time_series(filter, self.show_currency, self.merge)
+        self.data, self.last = options.journal.time_series(filter, self.show_currency, self.merge)
         self.redraw()
 
     def redraw(self):
@@ -183,12 +183,14 @@ class GraphTab(QWidget):
         if not self.data:
             return
 
-        for commodity, series in self.data.items():
+        for commodity, amount in sorted(self.last.items(), key=lambda x: x[1].number(), reverse=True):
             if commodity not in self.commodities:
                 continue
+            series = self.data[commodity]
             x = sorted(series.keys())
             y = [series[i].number() for i in x]
-            self.ax.plot_date(x, y, fmt='o-', label=commodity)
+            label = ("%s (%." + str(amount.commodity.precision) + "f %s)") % (commodity, amount.number(), amount.commodity.symbol)
+            self.ax.plot_date(x, y, fmt='o-', label=label)
 
         if self.show_currency:
             self.ax.set_ylabel(self.show_currency)

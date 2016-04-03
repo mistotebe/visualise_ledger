@@ -104,7 +104,7 @@ class Journal(object):
                 value = value.value(show_currency)
             last[commodity.symbol] = series[post.date] = series.get(post.date, old) + value
 
-        return data
+        return data, last
 
     def account_series(self, filter):
         account_series = StatefulAccounts(self)
