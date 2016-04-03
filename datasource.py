@@ -10,7 +10,7 @@ def get_value(amount, commodity, *maybe_date):
     # there is an optional parameter, date
     value = amount.value(commodity, *maybe_date)
     # for zero balance, to_amount() will throw an ArithmeticError
-    return value and value.to_amount().number() or ledger.Amount(0)
+    return value and value.to_amount() or ledger.Amount(0)
 
 class StatefulAccounts(object):
     def __init__(self, journal):

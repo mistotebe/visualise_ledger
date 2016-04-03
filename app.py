@@ -215,6 +215,7 @@ class AccountTab(QWidget):
         self.canvas.setParent(self)
 
         self.mpl_toolbar = NavigationToolbar(self.canvas, self)
+        self.cmap = get_cmap('gist_ncar')
 
         graphLayout = QVBoxLayout()
         graphLayout.addWidget(self.canvas)
@@ -230,37 +231,44 @@ class AccountTab(QWidget):
 
         filter = options.filter.text()
         self.series = options.journal.account_series(filter)
-        self.data = self.series.data
-        self.aggregated = self.series.aggregated
+
         self.redraw()
 
     def redraw(self):
         self.ax.clear()
-        if not self.data or not self.show_currency:
+        if not self.series or not self.show_currency:
             return
 
-        processed = set()
-        commodity = self.options.journal.commodities[self.show_currency]
-        for name, data in self.data.items():
-            account = self.series.accounts[name]
-            limit = self.options.depth_limit.value()
+        def useable_accounts(limit):
+            aggregate = {}
 
-            if limit:
-                aggregate = account.depth >= limit
-                while account.depth > limit:
-                    account = account.parent
+            for name in self.series.data:
+                account = self.series.accounts[name]
 
-                if aggregate:
+                if limit and account.depth >= limit:
+                    while account.depth > limit:
+                        account = account.parent
                     name = account.fullname()
-                    data = self.aggregated[name]
 
-            if name in processed:
-                continue
+                    aggregate[name] = (get_value(self.series.aggregated_last[name], commodity),
+                                       self.series.aggregated[name])
+                elif name not in aggregate:
+                    aggregate[name] = (get_value(self.series.last[name], commodity),
+                                       self.series.data[name])
 
+            accounts = len(aggregate)
+            colors = map(self.cmap, ((x+0.5)/accounts for x in range(accounts)))
+
+            return ((name, next(colors), aggregate[name]) for name in
+                sorted(aggregate, key=lambda x: aggregate[x][0], reverse=True))
+
+        commodity = self.options.journal.commodities[self.show_currency]
+        limit = self.options.depth_limit.value()
+        for name, color, (last, data) in useable_accounts(limit):
+            label = ("%s (%s)") % (name, last)
             data = {date: get_value(amount, commodity, date) for (date, amount) in data.items()}
             x, y = zip(*sorted(data.items()))
-            self.ax.plot_date(x, y, fmt='o-', label=name)
-            processed.add(name)
+            self.ax.plot_date(x, y, fmt='o-', label=label, color=color)
 
         self.ax.set_ylabel(self.show_currency)
         self.ax.legend(loc='upper left')
