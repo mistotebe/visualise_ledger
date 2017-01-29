@@ -18,10 +18,10 @@ class StatefulAccounts(object):
         self.commodities = set()
 
         self.data = defaultdict(dict)
-        self.last = defaultdict(ledger.Balance)
+        self.total = defaultdict(ledger.Balance)
 
         self.aggregated = defaultdict(dict)
-        self.aggregated_last = defaultdict(ledger.Balance)
+        self.aggregated_total = defaultdict(ledger.Balance)
 
     @property
     def accounts(self):
@@ -36,11 +36,11 @@ class StatefulAccounts(object):
 
     def _aggregate(self, post, account):
         name = account.fullname()
-        last = self.aggregated_last[name]
+        total = self.aggregated_total[name]
         series = self.aggregated[name]
 
-        value = last + post.amount
-        series[post.date] = self.aggregated_last[name] = value
+        value = total + post.amount
+        series[post.date] = self.aggregated_total[name] = value
 
         if account.parent:
             self._aggregate(post, account.parent)
@@ -51,11 +51,11 @@ class StatefulAccounts(object):
         account = post.account
 
         name = account.fullname()
-        last = self.last[name]
+        total = self.total[name]
         series = self.data[name]
 
-        value = last + post.amount
-        series[post.date] = self.last[name] = value
+        value = total + post.amount
+        series[post.date] = self.total[name] = value
         self._aggregate(post, account)
 
 class Journal(object):
@@ -86,12 +86,12 @@ class Journal(object):
         if show_currency and isinstance(show_currency, str):
             show_currency = self.ledger.commodities.find(show_currency)
         data = defaultdict(dict)
-        last = defaultdict(ledger.Amount)
+        total = defaultdict(ledger.Amount)
         for post in self.entries(filter):
             commodity = post.amount.commodity
             if merge:
                 commodity = show_currency
-            old = last[commodity.symbol]
+            old = total[commodity.symbol]
             old.commodity = show_currency or commodity
             series = data[commodity.symbol]
             # TODO: move the currency valuation to display logic instead
@@ -102,9 +102,9 @@ class Journal(object):
                 if value.value(show_currency) is None:
                     self.update_pricedb(value)
                 value = value.value(show_currency)
-            last[commodity.symbol] = series[post.date] = series.get(post.date, old) + value
+            total[commodity.symbol] = series[post.date] = series.get(post.date, old) + value
 
-        return data, last
+        return data, total
 
     def account_series(self, filter):
         account_series = StatefulAccounts(self)

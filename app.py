@@ -176,7 +176,7 @@ class GraphTab(QWidget):
         self.merge = bool(self.show_currency and options.merge.isChecked())
 
         filter = options.filter.text()
-        self.data, self.last = options.journal.time_series(filter, self.show_currency, self.merge)
+        self.data, self.total = options.journal.time_series(filter, self.show_currency, self.merge)
         self.redraw()
 
     def redraw(self):
@@ -184,10 +184,10 @@ class GraphTab(QWidget):
         if not self.data:
             return
 
-        lines = len(self.last)
+        lines = len(self.total)
         colors = map(self.cmap, ((x+0.5)/lines for x in range(lines)))
 
-        for color, (commodity, amount) in zip(colors, sorted(self.last.items(), key=lambda x: x[1].number(), reverse=True)):
+        for color, (commodity, amount) in zip(colors, sorted(self.total.items(), key=lambda x: x[1].number(), reverse=True)):
             if commodity not in self.commodities:
                 continue
             series = self.data[commodity]
@@ -250,10 +250,10 @@ class AccountTab(QWidget):
                         account = account.parent
                     name = account.fullname()
 
-                    aggregate[name] = (get_value(self.series.aggregated_last[name], commodity),
+                    aggregate[name] = (get_value(self.series.aggregated_total[name], commodity),
                                        self.series.aggregated[name])
                 elif name not in aggregate:
-                    aggregate[name] = (get_value(self.series.last[name], commodity),
+                    aggregate[name] = (get_value(self.series.total[name], commodity),
                                        self.series.data[name])
 
             accounts = len(aggregate)
@@ -264,8 +264,8 @@ class AccountTab(QWidget):
 
         commodity = self.options.journal.commodities[self.show_currency]
         limit = self.options.depth_limit.value()
-        for name, color, (last, data) in useable_accounts(limit):
-            label = ("%s (%s)") % (name, last)
+        for name, color, (total, data) in useable_accounts(limit):
+            label = ("%s (%s)") % (name, total)
             data = {date: get_value(amount, commodity, date) for (date, amount) in data.items()}
             x, y = zip(*sorted(data.items()))
             self.ax.plot_date(x, y, fmt='o-', label=label, color=color)
@@ -353,9 +353,9 @@ class PieTab(QWidget):
                     account = account.parent
 
                 name = account.fullname()
-                value = self.series.aggregated_last[name]
+                value = self.series.aggregated_total[name]
             else:
-                value = self.series.last[name]
+                value = self.series.total[name]
 
             if name in processed:
                 continue
