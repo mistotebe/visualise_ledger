@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import os, sys
+from collections import defaultdict
+from datetime import timedelta
 
 import PyQt5.QtCore
 from PyQt5.QtCore import (
@@ -279,6 +281,149 @@ class AccountTab(QWidget):
         self.ax.legend(loc='upper left')
         self.fig.canvas.draw()
 
+class BarTab(QWidget):
+    def __init__(self, options):
+        super(BarTab, self).__init__()
+        self.options = options
+        self.options.reset.connect(self.reset)
+        self.options.redraw.connect(self.redraw)
+
+        self.classifiers = self.monthly
+
+        self.fig = Figure()
+        self.ax = self.fig.add_subplot(111)
+
+        self.canvas = FigureCanvas(self.fig)
+        self.canvas.setParent(self)
+
+        self.mpl_toolbar = NavigationToolbar(self.canvas, self)
+        self.cmap = get_cmap('gist_ncar')
+
+        graphLayout = QVBoxLayout()
+        graphLayout.addWidget(self.canvas)
+        graphLayout.addWidget(self.mpl_toolbar)
+
+        #optionLayout = QVBoxLayout(self)
+        #optionLayout.addWidget(self.classifiers)
+
+        layout = QHBoxLayout(self)
+        layout.addLayout(graphLayout)
+
+        self.series = None
+        self.commodity = None
+
+    def monthly(self, name, date, amount, to_commodity):
+        return (date.replace(day=1), name, get_value(amount, to_commodity, date))
+
+    def reset(self):
+        options = self.options
+        self.commodity = options.show_currency.currentText()
+        self.merge = bool(self.commodity and options.merge.isChecked())
+
+        filter = options.filter.text()
+        self.series = options.journal.account_series(filter)
+
+        self.redraw()
+
+    def redraw(self):
+        self.ax.clear()
+        if not self.series or not self.commodity:
+            return
+
+        accounts = {}
+        accounts_sorted = []
+        data = defaultdict(dict)
+        commodity = self.options.journal.commodities[self.commodity]
+        classifier = self.classifiers
+        limit = self.options.depth_limit.value()
+        width = timedelta(10)
+
+        Balance = self.options.journal.ledger.Balance
+        Amount = self.options.journal.ledger.Amount
+
+        def useable_accounts(series, commodity, limit):
+            aggregate = {}
+
+            for name in series.running_total:
+                account = series.accounts[name]
+
+                if limit and account.depth >= limit:
+                    while account.depth > limit:
+                        account = account.parent
+                    name = account.fullname()
+
+                    aggregate[name] = (get_value(series.aggregated_total[name], commodity),
+                                       series.aggregated_postings[name])
+                elif name not in aggregate:
+                    aggregate[name] = (get_value(series.total[name], commodity),
+                                       series.postings[name])
+
+            accounts = len(aggregate)
+
+            return ((name, aggregate[name]) for name in
+                sorted(aggregate, key=lambda x: aggregate[x][0], reverse=True))
+
+        for name, (total, postings) in useable_accounts(self.series, commodity, limit):
+            label = ("%s (%s)") % (name, total)
+            accounts_sorted.append(label)
+            number = accounts[name] = (len(accounts), label)
+            for group, bucket, value in (
+                    classifier(accounts[name], date, amount, commodity)
+                        for (date, amount) in postings.items()):
+                data[group][bucket] = data[group].get(bucket, Balance()) + value
+            postings = {date: get_value(amount, commodity, date)
+                    for (date, amount) in postings.items()}
+
+        view = defaultdict(dict)
+        for group, buckets in data.items():
+            offsets = [Balance(), Balance()]
+            sum_neg = Balance()
+            for account in sorted(accounts.values()):
+                if account not in buckets:
+                    continue
+                value = buckets[account]
+                value = value and value.to_amount() or Amount(0)
+                negative = int(value < 0)
+
+                offset = offsets[negative]
+                view[account][group] = [negative, offset, value]
+                offsets[negative] = offset + value
+                if negative:
+                    sum_neg += value
+
+            for account, l in view.items():
+                if group not in l:
+                    continue
+                value = l[group]
+                if value[0]:
+                    new = value[1] + value[2] - sum_neg
+                    value[2].in_place_negate()
+                else:
+                    new = value[1]
+                value[1] = new and float(new.to_amount().number()) or 0
+                value[2] = float(value[2].number())
+
+        horizontal_offsets = [ -width/2, width/2 ]
+
+        for key, data in view.items():
+            index, label = key
+            label = accounts_sorted[index]
+            color = self.cmap((index+0.5)/len(accounts_sorted))
+            bars = [defaultdict(list), defaultdict(list)]
+            for group in sorted(data.keys()):
+                negative, offset, height = data[group]
+                bars[negative]['group'].append(group+horizontal_offsets[negative])
+                bars[negative]['offset'].append(offset)
+                bars[negative]['height'].append(height)
+            self.ax.bar(bars[0]['group'], bars[0]['height'], width.days,
+                bottom=bars[0]['offset'], color=color, label=label)
+            self.ax.bar(bars[1]['group'], bars[1]['height'], width.days,
+                bottom=bars[1]['offset'], color=color)
+
+        self.ax.set_ylabel(self.commodity)
+        #self.ax.legend(loc='upper left')
+        self.fig.canvas.draw()
+
 
 class PieTab(QWidget):
     def __init__(self, options):
@@ -400,6 +545,9 @@ class Window(QWidget):
 
         graph = AccountTab(self.options)
         tabs.addTab(graph, "Account breakdown")
+
+        graph = BarTab(self.options)
+        tabs.addTab(graph, "Timed breakdown")
 
         text = PieTab(self.options)
         tabs.addTab(text, "Pie charts")
