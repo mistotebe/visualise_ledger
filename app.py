@@ -170,18 +170,20 @@ class GraphTab(QWidget):
         layout.addWidget(self.commodities)
         layout.addLayout(graphLayout)
 
+        self.running_total = None
+
     def reset(self):
         options = self.options
-        self.show_currency = options.show_currency.currentText()
-        self.merge = bool(self.show_currency and options.merge.isChecked())
+        self.commodity = options.show_currency.currentText()
+        self.merge = bool(self.commodity and options.merge.isChecked())
 
         filter = options.filter.text()
-        self.data, self.total = options.journal.time_series(filter, self.show_currency, self.merge)
+        self.running_total, self.total = options.journal.time_series(filter, self.commodity, self.merge)
         self.redraw()
 
     def redraw(self):
         self.ax.clear()
-        if not self.data:
+        if not self.running_total:
             return
 
         lines = len(self.total)
@@ -190,14 +192,14 @@ class GraphTab(QWidget):
         for color, (commodity, amount) in zip(colors, sorted(self.total.items(), key=lambda x: x[1].number(), reverse=True)):
             if commodity not in self.commodities:
                 continue
-            series = self.data[commodity]
+            series = self.running_total[commodity]
             x = sorted(series.keys())
             y = [series[i].number() for i in x]
             label = ("%s (%." + str(amount.commodity.precision) + "f %s)") % (commodity, amount.number(), amount.commodity.symbol)
             self.ax.plot_date(x, y, fmt='o-', color=color, label=label)
 
-        if self.show_currency:
-            self.ax.set_ylabel(self.show_currency)
+        if self.commodity:
+            self.ax.set_ylabel(self.commodity)
         self.ax.legend(loc='upper left')
         self.fig.canvas.draw()
 
@@ -224,10 +226,13 @@ class AccountTab(QWidget):
         layout = QHBoxLayout(self)
         layout.addLayout(graphLayout)
 
+        self.series = None
+        self.commodity = None
+
     def reset(self):
         options = self.options
-        self.show_currency = options.show_currency.currentText()
-        self.merge = bool(self.show_currency and options.merge.isChecked())
+        self.commodity = options.show_currency.currentText()
+        self.merge = bool(self.commodity and options.merge.isChecked())
 
         filter = options.filter.text()
         self.series = options.journal.account_series(filter)
@@ -236,13 +241,13 @@ class AccountTab(QWidget):
 
     def redraw(self):
         self.ax.clear()
-        if not self.series or not self.show_currency:
+        if not self.series or not self.commodity:
             return
 
         def useable_accounts(limit):
             aggregate = {}
 
-            for name in self.series.data:
+            for name in self.series.running_total:
                 account = self.series.accounts[name]
 
                 if limit and account.depth >= limit:
@@ -251,10 +256,10 @@ class AccountTab(QWidget):
                     name = account.fullname()
 
                     aggregate[name] = (get_value(self.series.aggregated_total[name], commodity),
-                                       self.series.aggregated[name])
+                                       self.series.aggregated_running[name])
                 elif name not in aggregate:
                     aggregate[name] = (get_value(self.series.total[name], commodity),
-                                       self.series.data[name])
+                                       self.series.running_total[name])
 
             accounts = len(aggregate)
             colors = map(self.cmap, ((x+0.5)/accounts for x in range(accounts)))
@@ -262,15 +267,15 @@ class AccountTab(QWidget):
             return ((name, next(colors), aggregate[name]) for name in
                 sorted(aggregate, key=lambda x: aggregate[x][0], reverse=True))
 
-        commodity = self.options.journal.commodities[self.show_currency]
+        commodity = self.options.journal.commodities[self.commodity]
         limit = self.options.depth_limit.value()
-        for name, color, (total, data) in useable_accounts(limit):
+        for name, color, (total, running_total) in useable_accounts(limit):
             label = ("%s (%s)") % (name, total)
-            data = {date: get_value(amount, commodity, date) for (date, amount) in data.items()}
-            x, y = zip(*sorted(data.items()))
+            running_total = {date: get_value(amount, commodity, date) for (date, amount) in running_total.items()}
+            x, y = zip(*sorted(running_total.items()))
             self.ax.plot_date(x, y, fmt='o-', label=label, color=color)
 
-        self.ax.set_ylabel(self.show_currency)
+        self.ax.set_ylabel(self.commodity)
         self.ax.legend(loc='upper left')
         self.fig.canvas.draw()
 
@@ -297,6 +302,9 @@ class PieTab(QWidget):
         graphLayout.addWidget(self.account)
         graphLayout.addWidget(self.canvas)
         graphLayout.addWidget(self.mpl_toolbar)
+
+        self.series = None
+        self.commodity = None
 
     def reset(self):
         options = self.options

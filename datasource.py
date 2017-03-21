@@ -17,19 +17,21 @@ class StatefulAccounts(object):
         self.journal = journal.journal
         self.commodities = set()
 
-        self.data = defaultdict(dict)
+        self.postings = defaultdict(dict)
+        self.running_total = defaultdict(dict)
         self.total = defaultdict(ledger.Balance)
 
-        self.aggregated = defaultdict(dict)
+        self.aggregated_postings = defaultdict(dict)
+        self.aggregated_running = defaultdict(dict)
         self.aggregated_total = defaultdict(ledger.Balance)
 
     @property
     def accounts(self):
-        return {name: self.journal.find_account(name, False) for name in self.data.keys()}
+        return {name: self.journal.find_account(name, False) for name in self.running_total.keys()}
 
     @property
     def aggregated_accounts(self):
-        return {name: self.journal.find_account(name, False) for name in self.aggregated.keys()}
+        return {name: self.journal.find_account(name, False) for name in self.aggregated_running.keys()}
 
     def account_hierarchy(self):
         pass
@@ -37,10 +39,12 @@ class StatefulAccounts(object):
     def _aggregate(self, post, account):
         name = account.fullname()
         total = self.aggregated_total[name]
-        series = self.aggregated[name]
+        series = self.aggregated_running[name]
+        postings = self.aggregated_postings[name]
 
-        value = total + post.amount
-        series[post.date] = self.aggregated_total[name] = value
+        new_total = total + post.amount
+        series[post.date] = self.aggregated_total[name] = new_total
+        postings[post.date] = postings.get(post.date, ledger.Balance()) + post.amount
 
         if account.parent:
             self._aggregate(post, account.parent)
@@ -52,10 +56,12 @@ class StatefulAccounts(object):
 
         name = account.fullname()
         total = self.total[name]
-        series = self.data[name]
+        series = self.running_total[name]
+        postings = self.postings[name]
 
-        value = total + post.amount
-        series[post.date] = self.total[name] = value
+        new_total = total + post.amount
+        series[post.date] = self.total[name] = new_total
+        postings[post.date] = postings.get(post.date, ledger.Balance()) + post.amount
         self._aggregate(post, account)
 
 class Journal(object):
@@ -85,7 +91,7 @@ class Journal(object):
     def time_series(self, filter, show_currency=None, merge=False):
         if show_currency and isinstance(show_currency, str):
             show_currency = self.ledger.commodities.find(show_currency)
-        data = defaultdict(dict)
+        running_total = defaultdict(dict)
         total = defaultdict(ledger.Amount)
         for post in self.entries(filter):
             commodity = post.amount.commodity
@@ -93,7 +99,7 @@ class Journal(object):
                 commodity = show_currency
             old = total[commodity.symbol]
             old.commodity = show_currency or commodity
-            series = data[commodity.symbol]
+            series = running_total[commodity.symbol]
             # TODO: move the currency valuation to display logic instead
             value = post.amount
             if show_currency:
@@ -104,7 +110,7 @@ class Journal(object):
                 value = value.value(show_currency)
             total[commodity.symbol] = series[post.date] = series.get(post.date, old) + value
 
-        return data, total
+        return running_total, total
 
     def account_series(self, filter):
         account_series = StatefulAccounts(self)
