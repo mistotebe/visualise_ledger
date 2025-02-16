@@ -17,11 +17,11 @@ class StatefulAccounts:
         self.journal = journal.journal
         self.commodities = set()
 
-        self.postings = defaultdict(dict)
+        self.postings = defaultdict(lambda: defaultdict(ledger.Balance))
         self.running_total = defaultdict(dict)
         self.total = defaultdict(ledger.Balance)
 
-        self.aggregated_postings = defaultdict(dict)
+        self.aggregated_postings = defaultdict(lambda: defaultdict(ledger.Balance))
         self.aggregated_running = defaultdict(dict)
         self.aggregated_total = defaultdict(ledger.Balance)
 
@@ -44,7 +44,7 @@ class StatefulAccounts:
 
         new_total = total + post.amount
         series[post.date] = self.aggregated_total[name] = new_total
-        postings[post.date] = postings.get(post.date, ledger.Balance()) + post.amount
+        postings[post.date] = postings[post.date] + post.amount
 
         if account.parent:
             self._aggregate(post, account.parent)
@@ -61,7 +61,7 @@ class StatefulAccounts:
 
         new_total = total + post.amount
         series[post.date] = self.total[name] = new_total
-        postings[post.date] = postings.get(post.date, ledger.Balance()) + post.amount
+        postings[post.date] = postings[post.date] + post.amount
         self._aggregate(post, account)
 
 class Journal:
@@ -108,6 +108,8 @@ class Journal:
                 if value.value(show_currency) is None:
                     self.update_pricedb(value)
                 value = value.value(show_currency)
+                if value is None:
+                    value = 0
             total[commodity.symbol] = series[post.date] = series.get(post.date, old) + value
 
         return running_total, total

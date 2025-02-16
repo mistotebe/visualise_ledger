@@ -190,6 +190,7 @@ class GraphTab(QWidget):
 
     def redraw(self):
         self.ax.clear()
+        self.ax.grid(True)
         if not self.running_total:
             return
 
@@ -248,6 +249,7 @@ class AccountTab(QWidget):
 
     def redraw(self):
         self.ax.clear()
+        self.ax.grid(True)
         if not self.series or not self.commodity:
             return
 
@@ -332,6 +334,7 @@ class BarTab(QWidget):
 
     def redraw(self):
         self.ax.clear()
+        self.ax.grid(True)
         if not self.series or not self.commodity:
             return
 
