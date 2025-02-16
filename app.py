@@ -23,7 +23,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.pyplot import subplots
 from matplotlib.figure import Figure
-from matplotlib.cm import get_cmap
+from matplotlib import colormaps
 
 def debug():
     from PyQt5.QtCore import pyqtRemoveInputHook; pyqtRemoveInputHook()
@@ -162,7 +162,7 @@ class GraphTab(QWidget):
         self.canvas.setParent(self)
 
         self.mpl_toolbar = NavigationToolbar(self.canvas, self)
-        self.cmap = get_cmap('gist_ncar')
+        self.cmap = colormaps['gist_ncar']
 
         graphLayout = QVBoxLayout()
         graphLayout.addWidget(self.canvas)
@@ -219,7 +219,7 @@ class AccountTab(QWidget):
         self.canvas.setParent(self)
 
         self.mpl_toolbar = NavigationToolbar(self.canvas, self)
-        self.cmap = get_cmap('gist_ncar')
+        self.cmap = colormaps['gist_ncar']
 
         graphLayout = QVBoxLayout()
         graphLayout.addWidget(self.canvas)
@@ -297,7 +297,7 @@ class BarTab(QWidget):
         self.canvas.setParent(self)
 
         self.mpl_toolbar = NavigationToolbar(self.canvas, self)
-        self.cmap = get_cmap('gist_ncar')
+        self.cmap = colormaps['gist_ncar']
 
         graphLayout = QVBoxLayout()
         graphLayout.addWidget(self.canvas)
@@ -438,7 +438,7 @@ class PieTab(QWidget):
         self.canvas.setParent(self)
 
         self.mpl_toolbar = NavigationToolbar(self.canvas, self)
-        self.cmap = get_cmap('gist_ncar')
+        self.cmap = colormaps['gist_ncar']
 
         self.account = QLineEdit(self)
         self.account.editingFinished.connect(self.redraw)
