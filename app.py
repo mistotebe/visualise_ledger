@@ -88,8 +88,12 @@ class Options(QWidget):
         layout.addLayout(viewLayout)
         layout.addLayout(filterLayout)
 
-    def select_file(self):
-        selected_file, ignored = QFileDialog(self, "Ledger file to open").getOpenFileName()
+        if app.arguments():
+            self.select_file(app.arguments()[-1])
+
+    def select_file(self, selected_file=None):
+        if not selected_file:
+            selected_file, _ = QFileDialog(self, "Ledger file to open").getOpenFileName()
         if selected_file:
             try:
                 journal = Journal(selected_file, effective_date=self.effective_date)
@@ -559,7 +563,7 @@ class Window(QWidget):
         button.clicked.connect(app.quit)
 
 if __name__=='__main__':
-    app = QApplication(sys.argv)
+    app = QApplication(sys.argv[1:])
 
     window = Window()
     window.show()
