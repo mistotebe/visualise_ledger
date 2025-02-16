@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 
-import os, sys
+import os
+import sys
 from collections import defaultdict
 from datetime import timedelta
 
 import PyQt5.QtCore
 from PyQt5.QtCore import (
         pyqtSignal,
-        )
+)
 from PyQt5.QtWidgets import (
         QApplication, QWidget, QTabWidget,
         QVBoxLayout, QHBoxLayout,
         QLabel, QMessageBox, QGroupBox,
         QLineEdit, QPushButton, QFileDialog, QComboBox, QCheckBox, QSpinBox,
-    )
+)
 from datasource import Journal, get_value
 
 import matplotlib

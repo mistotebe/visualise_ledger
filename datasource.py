@@ -12,7 +12,7 @@ def get_value(amount, commodity, *maybe_date):
     # for zero balance, to_amount() will throw an ArithmeticError
     return value and value.to_amount() or ledger.Amount(0)
 
-class StatefulAccounts(object):
+class StatefulAccounts:
     def __init__(self, journal):
         self.journal = journal.journal
         self.commodities = set()
@@ -64,7 +64,7 @@ class StatefulAccounts(object):
         postings[post.date] = postings.get(post.date, ledger.Balance()) + post.amount
         self._aggregate(post, account)
 
-class Journal(object):
+class Journal:
     def __init__(self, filename, effective_date=True):
         self.ledger = ledger
         self.journal = ledger.read_journal(filename)
